@@ -9,18 +9,18 @@ sequenceDiagram
     actor Client
     participant CH as ClientHandler
     participant RH as RequestHandler
-    participant DB as UserDAO (MySQL)
+    participant DB as UserDAO [MySQL]
 
-    Client->>CH: Gửi LOGIN (username, password)
-    CH->>RH: handleLogin(LoginRequest)
-    RH->>DB: findByUsername(username)
-    DB-->>RH: Trả về UserEntity / PasswordHash
+    Client->>CH: Gửi LOGIN [username, password]
+    CH->>RH: handleLogin[LoginRequest]
+    RH->>DB: findByUsername[username]
+    DB-->>RH: Trả về UserEntity hoặc PasswordHash
     alt Mật khẩu chính xác
-        RH->>RH: Tạo SessionId & lưu ServerSessionManager
-        RH->>CH: setLoginSessionId(sessionId)
-        RH-->>Client: Trả về LOGIN_SUCCESS (token, info)
+        RH->>RH: Tạo SessionId và lưu ServerSessionManager
+        RH->>CH: setLoginSessionId[sessionId]
+        RH-->>Client: Trả về LOGIN_SUCCESS [token, info]
     else Sai mật khẩu hoặc không tồn tại
-        RH-->>Client: Trả về LOGIN_FAILURE (error message)
+        RH-->>Client: Trả về LOGIN_FAILURE [error message]
     end 
 ```
 ### 1.2 Luồng Lấy danh sách đấu giá (Get Auction List)
@@ -30,12 +30,12 @@ sequenceDiagram
     actor Client
     participant CH as ClientHandler
     participant RH as RequestHandler
-    participant DB as AuctionDAO (MySQL)
+    participant DB as AuctionDAO [MySQL]
 
     Client->>CH: Gửi GET_AUCTION_LIST
-    CH->>RH: handleGetAuctionList(request)
-    RH->>DB: getActiveAuctions()
-    DB-->>RH: Danh sách các phiên đấu giá (List<AuctionDTO>)
+    CH->>RH: handleGetAuctionList[request]
+    RH->>DB: getActiveAuctions
+    DB-->>RH: Danh sách các phiên đấu giá [List AuctionDTO]
     RH-->>Client: Trả về JSON mảng các phiên đấu giá
 ```
 
@@ -43,23 +43,23 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Bidder as Client (Bidder)
+    actor Bidder as Client [Bidder]
     participant CH as ClientHandler
     participant RH as RequestHandler
-    participant DB as BidDAO / UserDAO
+    participant DB as BidDAO va UserDAO
     actor Others as Other Clients
 
-    Bidder->>CH: Gửi BID (auctionId, bidAmount)
-    CH->>RH: handleBid(BidRequest)
-    Note over RH: Giữ Lock phiên đấu giá (Per-auction Lock)
-    RH->>DB: Kiểm tra số dư tài khoản & giá cao nhất hiện tại
-    alt Hợp lệ (Đủ tiền & Giá đặt > Giá hiện tại)
+    Bidder->>CH: Gửi BID [auctionId, bidAmount]
+    CH->>RH: handleBid [BidRequest]
+    Note over RH: Giữ Lock phiên đấu giá [Per-auction Lock]
+    RH->>DB: Kiểm tra số dư tài khoản và giá cao nhất hiện tại
+    alt Hợp lệ [Đủ tiền & Giá đặt > Giá hiện tại]
         RH->>DB: Trừ tiền tạm giữ người mới + Hoàn tiền người cũ
-        RH->>DB: Cập nhật current_price & lưu lịch sử Bid
+        RH->>DB: Cập nhật current_price và lưu lịch sử Bid
         RH-->>Bidder: Trả về BID_SUCCESS
-        RH-)Others: Broadcast giá mới (BROADCAST_BID)
+        RH-->>Others: Broadcast giá mới [BROADCAST_BID]
     else Không hợp lệ
-        RH-->>Bidder: Trả về BID_FAILURE (Lý do)
+        RH-->>Bidder: Trả về BID_FAILURE [Lý do]
     end
 ```
 
@@ -67,19 +67,19 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Timer as Scheduler (10s)
+    participant Timer as Scheduler [10s]
     participant SH as SettlementHandler
     participant DB as MySQL Database
-    actor Winner as Client (Winner)
-    actor Seller as Client (Seller)
+    actor Winner as Client [Winner]
+    actor Seller as Client [Seller]
 
     Timer->>SH: Kích hoạt quét định kỳ
-    SH->>DB: Quét các phiên có endTime <= NOW() & status = 'ACTIVE'
+    SH->>DB: Quét các phiên có endTime <= NOW() và status = 'ACTIVE'
     loop Từng phiên hết hạn
         SH->>DB: Cập nhật status = 'CLOSED'
         SH->>DB: Chuyển tiền tạm giữ sang số dư người bán
-        SH-)Winner: Bắn thông báo chiến thắng (isWinner = true)
-        SH-)Seller: Bắn thông báo phiên kết thúc thành công
+        SH-->>Winner: Bắn thông báo chiến thắng [isWinner = true]
+        SH-->>Seller: Bắn thông báo phiên kết thúc thành công
     end
 ```
 
